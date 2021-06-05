@@ -54,8 +54,6 @@ def validate(net, val_loader, epoch, criterion):
             val_loss.update(loss.item(), input_.size(0))
     return mean(val_loss.history)
 
-
-
 def main():
 
     configpath = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'configuration.ini')
