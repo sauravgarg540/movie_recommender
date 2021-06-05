@@ -2,78 +2,90 @@ import os
 import pandas as pd
 import numpy as np
 import torch
+import math
 from statistics import mean
+from sklearn.model_selection import train_test_split
 
 from configuration import ini_parser
 from Dataset import CustomDataset
 from model import EmbeddingNet
+from utils import AverageMeter, prepare_data
 
 torch.manual_seed(20)
 
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.history = []
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.history.append(val)
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-def get_data_loader(config):
+def get_data_loader(X_train, X_test, y_train, y_test):
     "Create Dataloaders"
 
-    train_generator = CustomDataset(config['paths']['dataset'])
+    train_generator = CustomDataset(X_train, y_train)
+    test_generator = CustomDataset(X_test, y_test)
     train_loader = torch.utils.data.DataLoader(train_generator, batch_size= 2000, num_workers = 4, shuffle=True)
-    print('training dataloader created')
-    return train_generator, train_loader 
+    val_loader = torch.utils.data.DataLoader(train_generator, num_workers = 4, shuffle=True)
+    print('Dataloader created successfully')
+    return train_loader, val_loader
 
 
 def train(net, train_loader, epoch, criterion, optimizer):
-    
+    '''Training procedure for EmbbedingNet'''
+
     train_loss = AverageMeter()
-    for i, (data, targets) in enumerate(train_loader):
-        data = data.cuda()
-        targets = targets.cuda()
+    
+    for i, (input_, target) in enumerate(train_loader):
+        input_ = input_.cuda()
+        target = target.cuda()
         optimizer.zero_grad()
-        output = net.forward(data[:, 0], data[:, 1])
-        loss = criterion(output, targets)
+        output = net.forward(input_[:, 0], input_[:, 1])
+        loss = criterion(output, target)
         loss.backward()
         optimizer.step()
-        train_loss.update(loss.item(), data.size(0))
-        print(train_loss.val)
+        train_loss.update(loss.item(), input_.size(0))
     return mean(train_loss.history)
 
+def validate(net, val_loader, epoch, criterion):
+    '''Validation procedure for EmbbedingNet'''
+
+    val_loss = AverageMeter()
+
+    net.eval()
+    with torch.no_grad():
+        for i, (input_, target) in enumerate(val_loader):
+            input_ = input_.cuda()
+            target = target.cuda()
+            output = net.forward(input_[:, 0], input_[:, 1])
+            loss = criterion(output, target)
+            val_loss.update(loss.item(), input_.size(0))
+    return mean(val_loss.history)
+
+
+
 def main():
+
     configpath = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'configuration.ini')
     ini_config = ini_parser(configpath)
-    generator, train_loader = get_data_loader(ini_config)
-    (n_users, n_movies), (user_to_index, movie_to_index) = generator.get_dataset_encoding()
-    net = EmbeddingNet(n_users, n_movies, n_factors=150, hidden = 100, dropouts = 0.5)
+    (x,y),(n_users,n_movies),(user_to_index, movie_to_index) = prepare_data(ini_config)
+    X_train, X_test, y_train, y_test = train_test_split(x, y, test_size=0.20, random_state=42)
+    print('dataframe loaded')
+
+    train_loader, val_loader = get_data_loader( X_train, X_test, y_train, y_test)
+    net = EmbeddingNet(n_users, n_movies, n_factors=150)
+    
     if torch.cuda.is_available():
         net.cuda()
-    epochs = 100
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(net.parameters(), lr = 0.0001, weight_decay=1e-5)
-    for epoch in range(epochs):
-        net.train()
-        loss = train(net, train_loader, epoch, criterion, optimizer)
-        print(f'Epoch:{epoch} ,loss:{loss} ')
+    epochs = 20
+
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.Adam(net.parameters(), lr = 0.001)
+    with torch.autograd.set_detect_anomaly(True):
+        for epoch in range(epochs):
+            net.train()
+            train_loss = train(net, train_loader, epoch, criterion, optimizer)
+            val_loss = validate(net, val_loader, epoch, criterion)
+            print(f'Epoch:{epoch}------> train loss: {train_loss}....Validatio loss: {val_loss}')
+        torch.save({'model_state_dict': net.state_dict(),}, f"checkpoints/checkpoint.pt")
 
 if __name__ == '__main__':
-    print(f'Number of available GPUs : {torch.cuda.device_count()}')
     main()
+
+
 
 
 
