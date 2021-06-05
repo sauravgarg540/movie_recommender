@@ -1,6 +1,26 @@
 import os
 import pandas as pd
 import numpy as np
+import configparser
+
+def ini_parser(file_name):
+    ''' parser for configuration.ini file'''
+    
+    config = configparser.ConfigParser()
+    config.read(file_name)
+    sections = config.sections()
+    configuration = {}
+    for section in sections:
+        configuration.update(dict(config[section]))
+    for k,v in configuration.items():
+        if v.isdigit():
+            configuration[k] = int(v)
+        else:
+            try:
+                configuration[k] = float(v)
+            except ValueError:
+                pass
+    return configuration
 
 class AverageMeter(object):
     """Computes and stores the average and current value"""
@@ -25,7 +45,7 @@ class AverageMeter(object):
 def prepare_data(config):
     '''Prepare data for the customn dataloader'''
 
-    ratings_df = pd.read_csv(os.path.join(config['paths']['dataset'], 'ratings.csv'))
+    ratings_df = pd.read_csv(os.path.join(config['dataset'], 'ratings.csv'))
 
     # get unique users
     unique_users = ratings_df['userId'].unique()

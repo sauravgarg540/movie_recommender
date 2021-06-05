@@ -16,7 +16,3 @@ class CustomDataset(Dataset):
         label = self.output[index]
         label = torch.tensor(float(label)).view(-1)
         return data, label
-
-
-
-

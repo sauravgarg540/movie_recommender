@@ -40,7 +40,7 @@ class EmbeddingNet(nn.Module):
         nn.init.zeros_(self.fc4.bias)
 
         
-    def forward(self, users, movies, minmax=(0.5,1.0)):
+    def forward(self, users, movies, minmax=[0.5,5.0]):
         x = torch.cat([self.u(users), self.m(movies)], dim=1)
         x = self.drop(x)
         x = nn.functional.relu(self.fc1(x))
@@ -50,5 +50,5 @@ class EmbeddingNet(nn.Module):
         x = nn.functional.relu(self.fc3(x))
         x = self.drop3(x)
         x = torch.sigmoid(self.fc4(x))
-        x = x*(5-0.5) + 0.5
+        x = x*(minmax[1]-minmax[0]) + minmax[0]
         return x
