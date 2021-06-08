@@ -3,7 +3,7 @@
 This model achieved RSME: 0.8205079606996796 after 5 epochs.
 
 ## Requirements
-```
+```python
 #run the following command to install required packages
 pip install numpy pandas==1.1.5 scipy
 
