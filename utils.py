@@ -1,7 +1,34 @@
 import os
+import argparse
+import configparser
 import pandas as pd
 import numpy as np
-import configparser
+
+
+
+def configuration():
+    parser = argparse.ArgumentParser(description='Movie recommendation system')
+    parser.add_argument('-u', '--userId',action  = "store",type = int,default = 100,help='User Id')
+    return parser
+
+
+def check_paths(source  = None, destination = None, file_name = None):
+    
+    if source is not None:
+        if isinstance(source, list):
+            for path in source:
+                if not os.path.exists(path):
+                    raise RuntimeError(f"Could not find source path '{path}'. Please check source path")
+        else:
+            if not os.path.exists(source):
+                    raise RuntimeError(f"Could not find source path '{source}'. Please check source path")
+        
+    if destination is not None:
+        if os.path.isabs(destination):
+                destination = os.path.join(os.getcwd(),destination[1:])
+        if not os.path.exists(destination):
+            print(f"Destination not found. Your files will be stored in {destination}")
+            os.makedirs(destination)
 
 def ini_parser(file_name):
     ''' parser for configuration.ini file'''
@@ -44,8 +71,9 @@ class AverageMeter(object):
 
 def prepare_data(config):
     '''Prepare data for the customn dataloader'''
-
+    check_paths(source = config['dataset'])
     ratings_df = pd.read_csv(os.path.join(config['dataset'], 'ratings.csv'))
+    
     # get unique users
     unique_users = ratings_df['userId'].unique()
     user_to_index = {old: new for new, old in enumerate(unique_users)} # map unique userId in the dataset to index
@@ -56,14 +84,9 @@ def prepare_data(config):
     movie_to_index = {old: new for new, old in enumerate(unique_movies)} # map unique movies in the dataset to index
     new_movies = ratings_df.movieId.map(movie_to_index)
 
-    # unique_ratings = dataframe.rating.unique()
-    # ratings_to_index = {old: new for new, old in enumerate(unique_ratings)} # map unique movies in the dataset to index
-    # new_ratings = dataframe.rating.map(ratings_to_index)
-    
-
     # make an embedding for users and movie
     n_users = unique_users.shape[0]
     n_movies = unique_movies.shape[0]
     x = np.asarray(pd.DataFrame({'user_id': new_users, 'movie_id': new_movies}))
     y = np.asarray(ratings_df["rating"])
-    return (x,y),(n_users,n_movies),(user_to_index, movie_to_index),(new_users, new_movies)
+    return (x,y),(n_users,n_movies),(user_to_index, movie_to_index),(unique_users, unique_movies)
