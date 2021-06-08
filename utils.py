@@ -46,7 +46,6 @@ def prepare_data(config):
     '''Prepare data for the customn dataloader'''
 
     ratings_df = pd.read_csv(os.path.join(config['dataset'], 'ratings.csv'))
-
     # get unique users
     unique_users = ratings_df['userId'].unique()
     user_to_index = {old: new for new, old in enumerate(unique_users)} # map unique userId in the dataset to index
@@ -67,4 +66,4 @@ def prepare_data(config):
     n_movies = unique_movies.shape[0]
     x = np.asarray(pd.DataFrame({'user_id': new_users, 'movie_id': new_movies}))
     y = np.asarray(ratings_df["rating"])
-    return (x,y),(n_users,n_movies),(user_to_index, movie_to_index)
+    return (x,y),(n_users,n_movies),(user_to_index, movie_to_index),(new_users, new_movies)
